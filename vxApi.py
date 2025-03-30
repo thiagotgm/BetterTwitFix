@@ -148,6 +148,11 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
 
     twText = html.unescape(tweetL["full_text"])
 
+    if 'note_tweet' in tweet and tweet['note_tweet'] != None and 'note_tweet_results' in tweet['note_tweet']:
+        noteTweet = tweet['note_tweet']['note_tweet_results']['result']
+        if 'text' in noteTweet:
+            twText = noteTweet['text']
+
     if 'entities' in tweetL and 'urls' in tweetL['entities']:
         for eurl in tweetL['entities']['urls']:
             if "/status/" in eurl["expanded_url"] and eurl["expanded_url"].startswith("https://twitter.com/"):
@@ -210,6 +215,9 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
     if 'lang' in tweetL:
         lang = tweetL['lang']
 
+    replyingTo = None
+    if 'in_reply_to_screen_name' in tweetL and tweetL['in_reply_to_screen_name'] != None:
+        replyingTo = tweetL['in_reply_to_screen_name']
 
     apiObject = {
         "text": twText,
@@ -234,7 +242,8 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         "combinedMediaUrl": combinedMediaUrl,
         "pollData": pollData,
         "article": tweetArticle,
-        "lang": lang
+        "lang": lang,
+        "replyingTo": replyingTo,
     }
     try:
         apiObject["date_epoch"] = int(datetime.strptime(tweetL["created_at"], "%a %b %d %H:%M:%S %z %Y").timestamp())
