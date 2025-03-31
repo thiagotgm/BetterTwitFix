@@ -36,6 +36,10 @@ staticFiles = { # TODO: Use flask static files instead of this
     "preferences": {"mime": "text/html","path": "preferences.html"},
     "style.css": {"mime": "text/css","path": "style.css"},
     "Roboto-Regular.ttf": {"mime": "font/ttf","path": "Roboto-Regular.ttf"},
+    "gif.png": {"mime": "image/png","path": "richEmbed/gif.png"},
+    "video.png": {"mime": "image/png","path": "richEmbed/video.png"},
+    "image.png": {"mime": "image/png","path": "richEmbed/image.png"},
+    "text.png": {"mime": "image/png","path": "richEmbed/text.png"},
 }
 
 generate_embed_user_agents = [
@@ -91,9 +95,7 @@ def generateActivityLink(tweetData,media=None,mediatype=None):
         if tweetData['qrt'] is not None:
             content += f"<blockquote><b>QRT: <a href=\"{tweetData['qrtURL']}\">{tweetData['qrt']['user_screen_name']}</a></b><br>{tweetData['qrt']['text']}</blockquote>"
         if tweetData['pollData'] is not None:
-            content += "<p>"
-            for option in tweetData['pollData']:
-                content += f"<p>{option['text']}: {option['votes']} votes</p>"
+            content += f"<p>{msgs.genPollDisplay(tweetData['pollData'])}</p>"
             content += "</p>"
         content = content.replace("\n","<br>")
         if media is not None:
@@ -112,16 +114,18 @@ def generateActivityLink(tweetData,media=None,mediatype=None):
         log.error("Error generating activity link: "+str(e))
         return None
 
+def getAppName(tweetData,appnameSuffix=""):
+    appName = config['config']['appname']+appnameSuffix
+    if 'Discord' not in user_agent:
+        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
+    return appName
+
 def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Image",tweetData['text'],qrt,tweetData['pollData'])
 
     if image.startswith("https://pbs.twimg.com") and "?" not in image:
         image = f"{image}?name=orig"
-
-    appName = config['config']['appname']+appnameSuffix
-    if 'Discord' not in user_agent:
-        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
     
     return render_template("image.html",
                     tweet=tweetData,
@@ -130,8 +134,9 @@ def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=appName,
+                    appname=getAppName(tweetData,appnameSuffix),
                     color=config['config']['color'],
+                    sicon="image",
                     activityLink=generateActivityLink(tweetData,image,"image/png")
                     )
 
@@ -154,6 +159,7 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
                     appname=appName,
                     color=config['config']['color'],
+                    sicon="video",
                     #activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4") # this is broken on Discord's end
                     )
 
@@ -161,28 +167,21 @@ def renderTextTweetEmbed(tweetData,appnameSuffix=""):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Text",tweetData['text'],qrt,tweetData['pollData'])
 
-    appName = config['config']['appname']+appnameSuffix
-    if 'Discord' not in user_agent:
-        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
-
     return render_template("text.html",
                     tweet=tweetData,
                     host=config['config']['url'],
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=appName,
+                    appname=getAppName(tweetData,appnameSuffix),
                     color=config['config']['color'],
-                    activityLink=generateActivityLink(tweetData)
+                    activityLink=generateActivityLink(tweetData),
+                    sicon="text"
                     )
 
 def renderArticleTweetEmbed(tweetData,appnameSuffix=""):
     articlePreview=tweetData['article']["title"]+"\n\n"+tweetData['article']["preview_text"]+"…"
     embedDesc = msgs.formatEmbedDesc("Image",articlePreview,None,None)
-
-    appName = config['config']['appname']+appnameSuffix
-    if 'Discord' not in user_agent:
-        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
 
     return render_template("image.html",
                     tweet=tweetData,
@@ -191,8 +190,9 @@ def renderArticleTweetEmbed(tweetData,appnameSuffix=""):
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=appName,
-                    color=config['config']['color']
+                    appname=getAppName(tweetData,appnameSuffix),
+                    color=config['config']['color'],
+                    sicon="image"
                     )
 
 def renderUserEmbed(userData,appnameSuffix=""):
@@ -237,32 +237,31 @@ def activity():
 
     attachmentsRaw = []
     for attachment in attachments:
-        print(attachment)
         attachmentsRaw.append({
             "type": "Document",
             "mediaType": attachment["type"],
             "url": attachment["url"]
-        })
+    })
 
     return {
-	"id": "https://x.com/i/status/"+tweetId,
-	"type": "Note",
-	"summary": None,
-	"inReplyTo": None,
-	"published": publishedDate,
-	"url": "https://x.com/i/status/"+tweetId,
-	"attributedTo": userAttrTo,
-	"content": content,
-	"attachment": attachmentsRaw,
-	"likes": {
-		"type": "Collection",
-		"totalItems": int(likes)
-	},
-	"shares": {
-		"type": "Collection",
-		"totalItems": int(retweets)
-	},
-}
+        "id": "https://x.com/i/status/"+tweetId,
+        "type": "Note",
+        "summary": None,
+        "inReplyTo": None,
+        "published": publishedDate,
+        "url": "https://x.com/i/status/"+tweetId,
+        "attributedTo": userAttrTo,
+        "content": content,
+        "attachment": attachmentsRaw,
+        "likes": {
+            "type": "Collection",
+            "totalItems": int(likes)
+        },
+        "shares": {
+            "type": "Collection",
+            "totalItems": int(retweets)
+        },
+    }
 
 @app.route('/user.json')
 def userJson():
@@ -272,21 +271,20 @@ def userJson():
     pfp = request.args.get("pfp", None)
 
     return {
-	"id": "https://x.com/"+screen_name,
-	"type": "Person",
-	"preferredUsername": screen_name,
-	"name": name,
-	"summary": "",
-	"url": "https://x.com/"+screen_name,
-	"memorial": False,
-	"tag": [],
-	"attachment": [],
-	"icon": {
-		"type": "Image",
-		"mediaType": "image/jpeg",
-		"url": pfp
-	},
-}
+        "id": "https://x.com/"+screen_name,
+        "type": "Person",
+        "preferredUsername": screen_name,
+        "name": name,
+        "summary": "",
+        "url": "https://x.com/"+screen_name,
+        "tag": [],
+        "attachment": [],
+        "icon": {
+            "type": "Image",
+            "mediaType": "image/jpeg",
+            "url": pfp
+        },
+    }
 
 def getTweetData(twitter_url,include_txt="false",include_rtf="false"):
     cachedVNF = getVnfFromLinkCache(twitter_url)

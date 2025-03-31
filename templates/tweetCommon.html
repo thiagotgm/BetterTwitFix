@@ -8,7 +8,15 @@
 <link type="application/activity+json" href="{{ activityLink|safe }}" />
 {% endif %}
 
+{% if sicon %}
+<!-- Video icon created by Rizki Ahmad Fauzi - Flaticon -->
+<!-- Picture and Text icon created by Freepik - Flaticon -->
+<!-- Gif file icons created by Grand Iconic - Flaticon -->
+<link rel="apple-touch-icon" sizes="128x128" href="/{{ sicon }}.png">
+{% else %}
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+{% endif %}
+
 <script src="/openInApp.js"></script>
 <script>document.addEventListener('DOMContentLoaded',function(){openTweet('{{ tweet["tweetID"] }}')})</script>
 <style>
