@@ -1,5 +1,4 @@
-from weakref import finalize
-from flask import Flask, render_template, request, redirect, abort, Response, send_from_directory, url_for, send_file, make_response, jsonify
+from flask import Flask, render_template, request, redirect, abort, Response, send_from_directory, send_file
 
 from configHandler import config
 remoteCombine='combination_method' in config['config'] and config['config']['combination_method'] != "local"
@@ -15,16 +14,16 @@ import msgs
 import twExtract as twExtract
 from cache import addVnfToLinkCache,getVnfFromLinkCache
 import vxlogging as log
-from utils import getTweetIdFromUrl, pathregex
+from utils import getTweetIdFromUrl, pathregex, determineMediaToEmbed, determineEmbedTweet, BytesIOWrapper, fixMedia
 from vxApi import getApiResponse, getApiUserResponse
 from urllib.parse import urlparse 
 from PyRTF.Elements import Document
 from PyRTF.document.section import Section
 from PyRTF.document.paragraph import Paragraph
-from utils import BytesIOWrapper
 from copy import deepcopy
 import json
 import datetime
+import activity as activitymg
 app = Flask(__name__)
 CORS(app)
 user_agent=""
@@ -67,13 +66,6 @@ def isValidUserAgent(user_agent):
         return True
     return False
 
-def fixMedia(mediaInfo):
-    # This is for the iOS Discord app, which has issues when serving URLs ending in .mp4 (https://github.com/dylanpdx/BetterTwitFix/issues/210)
-    if 'video.twimg.com' not in mediaInfo['url'] or 'convert?url=' in mediaInfo['url']:
-        return mediaInfo
-    mediaInfo['url'] = mediaInfo['url'].replace("https://video.twimg.com",f"{config['config']['url']}/tvid").replace(".mp4","")
-    return mediaInfo
-
 def message(text):
     return render_template(
         'default.html', 
@@ -109,7 +101,7 @@ def generateActivityLink(tweetData,media=None,mediatype=None):
 
         attributedTo = f"{config['config']['url']}/user.json?name={urllib.parse.quote(tweetData['user_name'])}&screen_name={urllib.parse.quote(tweetData['user_screen_name'])}&pfp={urllib.parse.quote(tweetData['user_profile_image_url'])}"
 
-        return f"{config['config']['url']}/activity.json?id={tweetData['tweetID']}&content={urllib.parse.quote(content)}&attachments={urllib.parse.quote(json.dumps(attachments))}&likes={likes}&retweets={retweets}&published={urllib.parse.quote(date)}&user={urllib.parse.quote(attributedTo)}"
+        return f"{config['config']['url']}/users/{tweetData['user_screen_name']}/statuses/{tweetData['tweetID']}"
     except Exception as e:
         log.error("Error generating activity link: "+str(e))
         return None
@@ -147,8 +139,8 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
     mediaInfo=fixMedia(mediaInfo)
 
     appName = config['config']['appname']+appnameSuffix
-    #if 'Discord' not in user_agent:
-    appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
+    if 'Discord' not in user_agent:
+        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
 
     return render_template("video.html",
                     tweet=tweetData,
@@ -160,7 +152,7 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
                     appname=appName,
                     color=config['config']['color'],
                     sicon="video",
-                    #activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4") # this is broken on Discord's end
+                    activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4") # this is broken on Discord's end
                     )
 
 def renderTextTweetEmbed(tweetData,appnameSuffix=""):
@@ -240,7 +232,8 @@ def activity():
         attachmentsRaw.append({
             "type": "Document",
             "mediaType": attachment["type"],
-            "url": attachment["url"]
+            "url": attachment["url"],
+            "preview_url": "https://pbs.twimg.com/ext_tw_video_thumb/1906073839441735680/pu/img/2xqg6tlK9mK0mSOR.jpg",
     })
 
     return {
@@ -271,7 +264,7 @@ def userJson():
     pfp = request.args.get("pfp", None)
 
     return {
-        "id": "https://x.com/"+screen_name,
+        "id": screen_name,
         "type": "Person",
         "preferredUsername": screen_name,
         "name": name,
@@ -321,19 +314,6 @@ def getUserData(twitter_url):
     rawUserData = twExtract.extractUser(twitter_url,workaroundTokens=config['config']['workaroundTokens'].split(','))
     userData = getApiUserResponse(rawUserData)
     return userData
-
-def determineEmbedTweet(tweetData):
-    # Determine which tweet, i.e main or QRT, to embed the media from.
-    # if there is no QRT, return the main tweet => default behavior
-    # if both don't have media, return the main tweet => embedding qrt text will be handled in the embed description
-    # if both have media, return the main tweet => priority is given to the main tweet's media
-    # if only the QRT has media, return the QRT => show the QRT's media, not the main tweet's
-    # if only the main tweet has media, return the main tweet => show the main tweet's media, embedding QRT text will be handled in the embed description
-    if tweetData['qrt'] is None:
-        return tweetData
-    if tweetData['qrt']['hasMedia'] and not tweetData['hasMedia']:
-        return tweetData['qrt']
-    return tweetData
 
 @app.route('/<path:sub_path>') # Default endpoint used by everything
 def twitfix(sub_path):
@@ -425,47 +405,35 @@ def twitfix(sub_path):
     if isApiRequest: # Directly return the API response if the request is from the API
         return tweetData
     elif directEmbed: # direct embed
+        embeddingMedia = tweetData['hasMedia']
+        renderMedia = None
+        if embeddingMedia:
+            renderMedia = determineMediaToEmbed(tweetData,embedIndex)
         # direct embeds should always prioritize the main tweet, so don't check for qrt
         # determine what type of media we're dealing with
-        if not tweetData['hasMedia'] and qrt is None:
+        if not embeddingMedia and qrt is None:
             return renderTextTweetEmbed(tweetData)
-        elif tweetData['allSameType'] and tweetData['media_extended'][0]['type'] == "image" and embedIndex == -1 and tweetData['combinedMediaUrl'] != None:
-            return render_template("rawimage.html",media={"url":tweetData['combinedMediaUrl']})
         else:
-            # this means we have mixed media or video, and we're only going to embed one
-            if embedIndex == -1: # if the user didn't specify an index, we'll just use the first one
-                embedIndex = 0
-            media = tweetData['media_extended'][embedIndex]
-            media=fixMedia(media)
-            if media['type'] == "image":
-                return render_template("rawimage.html",media=media)
-            elif media['type'] == "video" or media['type'] == "gif":
-                return render_template("rawvideo.html",media=media)
+            if renderMedia['type'] == "image":
+                return render_template("rawimage.html",media=renderMedia)
+            elif renderMedia['type'] == "video" or renderMedia['type'] == "gif":
+                return render_template("rawvideo.html",media=renderMedia)
     else: # full embed
         embedTweetData = determineEmbedTweet(tweetData)
+        embeddingMedia = embedTweetData['hasMedia']
+        
         if "article" in embedTweetData and embedTweetData["article"] is not None:
             return renderArticleTweetEmbed(tweetData," • See original tweet for full article")
-        elif not embedTweetData['hasMedia']:
+        elif not embeddingMedia:
             return renderTextTweetEmbed(tweetData)
-        elif embedTweetData['allSameType'] and embedTweetData['media_extended'][0]['type'] == "image" and embedIndex == -1 and embedTweetData['combinedMediaUrl'] != None:
-            return renderImageTweetEmbed(tweetData,embedTweetData['combinedMediaUrl'],appnameSuffix=" • See original tweet for full quality")
         else:
-            # this means we have mixed media or video, and we're only going to embed one
-            if embedIndex == -1: # if the user didn't specify an index, we'll just use the first one
-                embedIndex = 0
-            media = embedTweetData['media_extended'][embedIndex]
-            if len(embedTweetData["media_extended"]) > 1:
-                suffix = f' • Media {embedIndex+1}/{len(embedTweetData["media_extended"])}'
-            else:
-                suffix = ''
+            media = determineMediaToEmbed(embedTweetData,embedIndex)
+            suffix=""
+            if "suffix" in media:
+                suffix = media["suffix"]
             if media['type'] == "image":
                 return renderImageTweetEmbed(tweetData,media['url'] , appnameSuffix=suffix)
             elif media['type'] == "video" or media['type'] == "gif":
-                if media['type'] == "gif":
-                    if config['config']['gifConvertAPI'] != "" and config['config']['gifConvertAPI'] != "none":
-                        vurl=media['originalUrl'] if 'originalUrl' in media else media['url']
-                        media['url'] = config['config']['gifConvertAPI'] + "/convert?url=" + vurl
-                        suffix += " • GIF"
                 return renderVideoTweetEmbed(tweetData,media,appnameSuffix=suffix)
 
     return message(msgs.failedToScan)
@@ -501,6 +469,13 @@ def rendercombined():
     finalImg.save(imgIo, 'JPEG',quality=70)
     imgIo.seek(0)
     return send_file(imgIo, mimetype='image/jpeg',max_age=86400)
+
+@app.route("/api/v1/statuses/<int:tweet_id>")
+def api_v1_status(tweet_id):
+    tweetData = getTweetData(f"https://twitter.com/i/status/{tweet_id}")
+    if tweetData is None:
+        abort(500) # this should cause Discord to fall back to the default embed
+    return activitymg.tweetDataToActivity(tweetData)
 
 def oEmbedGen(description, user, video_link, ttype,providerName=None):
     if providerName == None:
