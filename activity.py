@@ -3,7 +3,7 @@ import msgs
 from utils import determineEmbedTweet, determineMediaToEmbed
 from copy import deepcopy
 
-def tweetDataToActivity(tweetData):
+def tweetDataToActivity(tweetData,embedIndex = -1):
     content=""
 
     if tweetData['replyingTo'] is not None:
@@ -30,12 +30,14 @@ def tweetDataToActivity(tweetData):
     embeddingMedia = embedTweetData['hasMedia']
     media = None
     if embeddingMedia:
-        media = determineMediaToEmbed(embedTweetData,-1)
+        media = determineMediaToEmbed(embedTweetData,embedIndex)
 
     if media is not None:
         media = deepcopy(media)
         if media['type'] == "gif":
             media['type'] = "gifv"
+        if 'thumbnail_url' not in media:
+            media['thumbnail_url'] = media['url']
         attachments.append({
             "id": "114163769487684704",
             "type": media['type'],

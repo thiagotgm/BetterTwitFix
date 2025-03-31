@@ -75,33 +75,10 @@ def message(text):
         repo    = config['config']['repo'], 
         url     = config['config']['url'] )
 
-def generateActivityLink(tweetData,media=None,mediatype=None):
+def generateActivityLink(tweetData,media=None,mediatype=None,embedIndex=-1):
     try:
-        content=""
-
-        if tweetData['replyingTo'] is not None:
-            content += f"<blockquote>↪️ <i>Replying to @{tweetData['replyingTo']}</i></blockquote>"
-        content+=f"<p>{tweetData['text']}</p>"
-
-        attachments=[]
-        if tweetData['qrt'] is not None:
-            content += f"<blockquote><b>QRT: <a href=\"{tweetData['qrtURL']}\">{tweetData['qrt']['user_screen_name']}</a></b><br>{tweetData['qrt']['text']}</blockquote>"
-        if tweetData['pollData'] is not None:
-            content += f"<p>{msgs.genPollDisplay(tweetData['pollData'])}</p>"
-            content += "</p>"
-        content = content.replace("\n","<br>")
-        if media is not None:
-            attachments.append({"type":mediatype,"url":media})
-        likes = tweetData['likes']
-        retweets = tweetData['retweets']
-
-        # convert date epoch to iso format
-        date = tweetData['date_epoch']
-        date = datetime.datetime.fromtimestamp(date).isoformat() + "Z"
-
-        attributedTo = f"{config['config']['url']}/user.json?name={urllib.parse.quote(tweetData['user_name'])}&screen_name={urllib.parse.quote(tweetData['user_screen_name'])}&pfp={urllib.parse.quote(tweetData['user_profile_image_url'])}"
-
-        return f"{config['config']['url']}/users/{tweetData['user_screen_name']}/statuses/{tweetData['tweetID']}"
+        embedIndex = embedIndex+1
+        return f"{config['config']['url']}/users/{tweetData['user_screen_name']}/statuses/{str(embedIndex)}{tweetData['tweetID']}"
     except Exception as e:
         log.error("Error generating activity link: "+str(e))
         return None
@@ -112,7 +89,7 @@ def getAppName(tweetData,appnameSuffix=""):
         appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
     return appName
 
-def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
+def renderImageTweetEmbed(tweetData,image,appnameSuffix="",embedIndex=-1):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Image",tweetData['text'],qrt,tweetData['pollData'])
 
@@ -129,10 +106,10 @@ def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
                     appname=getAppName(tweetData,appnameSuffix),
                     color=config['config']['color'],
                     sicon="image",
-                    activityLink=generateActivityLink(tweetData,image,"image/png")
+                    activityLink=generateActivityLink(tweetData,image,"image/png",embedIndex)
                     )
 
-def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
+def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix="",embedIndex=-1):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Video",tweetData['text'],qrt,tweetData['pollData'])
 
@@ -152,7 +129,7 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
                     appname=appName,
                     color=config['config']['color'],
                     sicon="video",
-                    activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4") # this is broken on Discord's end
+                    activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4",embedIndex)
                     )
 
 def renderTextTweetEmbed(tweetData,appnameSuffix=""):
@@ -432,9 +409,9 @@ def twitfix(sub_path):
             if "suffix" in media:
                 suffix = media["suffix"]
             if media['type'] == "image":
-                return renderImageTweetEmbed(tweetData,media['url'] , appnameSuffix=suffix)
+                return renderImageTweetEmbed(tweetData,media['url'] , appnameSuffix=suffix,embedIndex=embedIndex)
             elif media['type'] == "video" or media['type'] == "gif":
-                return renderVideoTweetEmbed(tweetData,media,appnameSuffix=suffix)
+                return renderVideoTweetEmbed(tweetData,media,appnameSuffix=suffix,embedIndex=embedIndex)
 
     return message(msgs.failedToScan)
 
@@ -470,8 +447,10 @@ def rendercombined():
     imgIo.seek(0)
     return send_file(imgIo, mimetype='image/jpeg',max_age=86400)
 
-@app.route("/api/v1/statuses/<int:tweet_id>")
+@app.route("/api/v1/statuses/<string:tweet_id>")
 def api_v1_status(tweet_id):
+    embedIndex = int(tweet_id[0])-1
+    tweet_id = int(tweet_id[1:])
     twitter_url=f"https://twitter.com/i/status/{tweet_id}"
     tweetData = getTweetData(twitter_url)
     if tweetData is None:
@@ -483,7 +462,7 @@ def api_v1_status(tweet_id):
     tweetData['qrt'] = qrt
     if tweetData is None:
         abort(500) # this should cause Discord to fall back to the default embed
-    return activitymg.tweetDataToActivity(tweetData)
+    return activitymg.tweetDataToActivity(tweetData,embedIndex)
 
 def oEmbedGen(description, user, video_link, ttype,providerName=None):
     if providerName == None:
