@@ -3,6 +3,12 @@
 <meta property="og:site_name" content="{{ appname }}">
 
 <meta name="twitter:title" content="{{ tweet['user_name'] }} (@{{ tweet['user_screen_name'] }})" />
+
+{% if activityLink %}
+<link type="application/activity+json" href="{{ activityLink|safe }}" />
+{% endif %}
+
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/openInApp.js"></script>
 <script>document.addEventListener('DOMContentLoaded',function(){openTweet('{{ tweet["tweetID"] }}')})</script>
 <style>

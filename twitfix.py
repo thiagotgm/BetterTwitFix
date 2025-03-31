@@ -23,6 +23,8 @@ from PyRTF.document.section import Section
 from PyRTF.document.paragraph import Paragraph
 from utils import BytesIOWrapper
 from copy import deepcopy
+import json
+import datetime
 app = Flask(__name__)
 CORS(app)
 user_agent=""
@@ -77,12 +79,49 @@ def message(text):
         repo    = config['config']['repo'], 
         url     = config['config']['url'] )
 
+def generateActivityLink(tweetData,media=None,mediatype=None):
+    try:
+        content=""
+
+        if tweetData['replyingTo'] is not None:
+            content += f"<blockquote>↪️ <i>Replying to @{tweetData['replyingTo']}</i></blockquote>"
+        content+=f"<p>{tweetData['text']}</p>"
+
+        attachments=[]
+        if tweetData['qrt'] is not None:
+            content += f"<blockquote><b>QRT: <a href=\"{tweetData['qrtURL']}\">{tweetData['qrt']['user_screen_name']}</a></b><br>{tweetData['qrt']['text']}</blockquote>"
+        if tweetData['pollData'] is not None:
+            content += "<p>"
+            for option in tweetData['pollData']:
+                content += f"<p>{option['text']}: {option['votes']} votes</p>"
+            content += "</p>"
+        content = content.replace("\n","<br>")
+        if media is not None:
+            attachments.append({"type":mediatype,"url":media})
+        likes = tweetData['likes']
+        retweets = tweetData['retweets']
+
+        # convert date epoch to iso format
+        date = tweetData['date_epoch']
+        date = datetime.datetime.fromtimestamp(date).isoformat() + "Z"
+
+        attributedTo = f"{config['config']['url']}/user.json?name={urllib.parse.quote(tweetData['user_name'])}&screen_name={urllib.parse.quote(tweetData['user_screen_name'])}&pfp={urllib.parse.quote(tweetData['user_profile_image_url'])}"
+
+        return f"{config['config']['url']}/activity.json?id={tweetData['tweetID']}&content={urllib.parse.quote(content)}&attachments={urllib.parse.quote(json.dumps(attachments))}&likes={likes}&retweets={retweets}&published={urllib.parse.quote(date)}&user={urllib.parse.quote(attributedTo)}"
+    except Exception as e:
+        log.error("Error generating activity link: "+str(e))
+        return None
+
 def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Image",tweetData['text'],qrt,tweetData['pollData'])
 
     if image.startswith("https://pbs.twimg.com") and "?" not in image:
         image = f"{image}?name=orig"
+
+    appName = config['config']['appname']+appnameSuffix
+    if 'Discord' not in user_agent:
+        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
     
     return render_template("image.html",
                     tweet=tweetData,
@@ -91,8 +130,9 @@ def renderImageTweetEmbed(tweetData,image,appnameSuffix=""):
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData),
-                    color=config['config']['color']
+                    appname=appName,
+                    color=config['config']['color'],
+                    activityLink=generateActivityLink(tweetData,image,"image/png")
                     )
 
 def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
@@ -100,6 +140,11 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
     embedDesc = msgs.formatEmbedDesc("Video",tweetData['text'],qrt,tweetData['pollData'])
 
     mediaInfo=fixMedia(mediaInfo)
+
+    appName = config['config']['appname']+appnameSuffix
+    #if 'Discord' not in user_agent:
+    appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
+
     return render_template("video.html",
                     tweet=tweetData,
                     media=mediaInfo,
@@ -107,26 +152,38 @@ def renderVideoTweetEmbed(tweetData,mediaInfo,appnameSuffix=""):
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData),
-                    color=config['config']['color']
+                    appname=appName,
+                    color=config['config']['color'],
+                    #activityLink=generateActivityLink(tweetData,mediaInfo['url'],"video/mp4") # this is broken on Discord's end
                     )
 
 def renderTextTweetEmbed(tweetData,appnameSuffix=""):
     qrt = tweetData['qrt']
     embedDesc = msgs.formatEmbedDesc("Text",tweetData['text'],qrt,tweetData['pollData'])
+
+    appName = config['config']['appname']+appnameSuffix
+    if 'Discord' not in user_agent:
+        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
+
     return render_template("text.html",
                     tweet=tweetData,
                     host=config['config']['url'],
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData),
-                    color=config['config']['color']
+                    appname=appName,
+                    color=config['config']['color'],
+                    activityLink=generateActivityLink(tweetData)
                     )
 
 def renderArticleTweetEmbed(tweetData,appnameSuffix=""):
     articlePreview=tweetData['article']["title"]+"\n\n"+tweetData['article']["preview_text"]+"…"
     embedDesc = msgs.formatEmbedDesc("Image",articlePreview,None,None)
+
+    appName = config['config']['appname']+appnameSuffix
+    if 'Discord' not in user_agent:
+        appName = msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData)
+
     return render_template("image.html",
                     tweet=tweetData,
                     pic=[tweetData['article']["image"]],
@@ -134,7 +191,7 @@ def renderArticleTweetEmbed(tweetData,appnameSuffix=""):
                     desc=embedDesc,
                     urlEncodedDesc=urllib.parse.quote(embedDesc),
                     tweetLink=f'https://twitter.com/{tweetData["user_screen_name"]}/status/{tweetData["tweetID"]}',
-                    appname=msgs.formatProvider(config['config']['appname']+appnameSuffix,tweetData),
+                    appname=appName,
                     color=config['config']['color']
                     )
 
@@ -165,6 +222,71 @@ def oembedend():
     ttype = request.args.get("ttype", None)
     provName = request.args.get("provider",None)
     return  oEmbedGen(desc, user, link, ttype,providerName=provName)
+
+@app.route('/activity.json')
+def activity():
+    tweetId = request.args.get("id", None)
+    publishedDate = request.args.get("published", None)
+    likes = request.args.get("likes", None)
+    retweets = request.args.get("retweets", None)
+    userAttrTo = request.args.get("user", None)
+    content = request.args.get("content", None)
+    attachments = json.loads(request.args.get("attachments", "[]"))
+
+    ##
+
+    attachmentsRaw = []
+    for attachment in attachments:
+        print(attachment)
+        attachmentsRaw.append({
+            "type": "Document",
+            "mediaType": attachment["type"],
+            "url": attachment["url"]
+        })
+
+    return {
+	"id": "https://x.com/i/status/"+tweetId,
+	"type": "Note",
+	"summary": None,
+	"inReplyTo": None,
+	"published": publishedDate,
+	"url": "https://x.com/i/status/"+tweetId,
+	"attributedTo": userAttrTo,
+	"content": content,
+	"attachment": attachmentsRaw,
+	"likes": {
+		"type": "Collection",
+		"totalItems": int(likes)
+	},
+	"shares": {
+		"type": "Collection",
+		"totalItems": int(retweets)
+	},
+}
+
+@app.route('/user.json')
+def userJson():
+
+    screen_name = request.args.get("screen_name", None)
+    name = request.args.get("name", None)
+    pfp = request.args.get("pfp", None)
+
+    return {
+	"id": "https://x.com/"+screen_name,
+	"type": "Person",
+	"preferredUsername": screen_name,
+	"name": name,
+	"summary": "",
+	"url": "https://x.com/"+screen_name,
+	"memorial": False,
+	"tag": [],
+	"attachment": [],
+	"icon": {
+		"type": "Image",
+		"mediaType": "image/jpeg",
+		"url": pfp
+	},
+}
 
 def getTweetData(twitter_url,include_txt="false",include_rtf="false"):
     cachedVNF = getVnfFromLinkCache(twitter_url)
@@ -217,6 +339,11 @@ def determineEmbedTweet(tweetData):
 
 @app.route('/<path:sub_path>') # Default endpoint used by everything
 def twitfix(sub_path):
+    global user_agent
+    user_agent = request.headers.get('User-Agent', None)
+    if user_agent is None:
+        user_agent = "unknown"
+
     isApiRequest=request.url.startswith("https://api.vx") or request.url.startswith("http://api.vx")
     if sub_path in staticFiles:
         if 'path' not in staticFiles[sub_path] or staticFiles[sub_path]["path"] == None:
@@ -319,18 +446,18 @@ def twitfix(sub_path):
     else: # full embed
         embedTweetData = determineEmbedTweet(tweetData)
         if "article" in embedTweetData and embedTweetData["article"] is not None:
-            return renderArticleTweetEmbed(tweetData," - See original tweet for full article")
+            return renderArticleTweetEmbed(tweetData," • See original tweet for full article")
         elif not embedTweetData['hasMedia']:
             return renderTextTweetEmbed(tweetData)
         elif embedTweetData['allSameType'] and embedTweetData['media_extended'][0]['type'] == "image" and embedIndex == -1 and embedTweetData['combinedMediaUrl'] != None:
-            return renderImageTweetEmbed(tweetData,embedTweetData['combinedMediaUrl'],appnameSuffix=" - See original tweet for full quality")
+            return renderImageTweetEmbed(tweetData,embedTweetData['combinedMediaUrl'],appnameSuffix=" • See original tweet for full quality")
         else:
             # this means we have mixed media or video, and we're only going to embed one
             if embedIndex == -1: # if the user didn't specify an index, we'll just use the first one
                 embedIndex = 0
             media = embedTweetData['media_extended'][embedIndex]
             if len(embedTweetData["media_extended"]) > 1:
-                suffix = f' - Media {embedIndex+1}/{len(embedTweetData["media_extended"])}'
+                suffix = f' • Media {embedIndex+1}/{len(embedTweetData["media_extended"])}'
             else:
                 suffix = ''
             if media['type'] == "image":
@@ -340,7 +467,7 @@ def twitfix(sub_path):
                     if config['config']['gifConvertAPI'] != "" and config['config']['gifConvertAPI'] != "none":
                         vurl=media['originalUrl'] if 'originalUrl' in media else media['url']
                         media['url'] = config['config']['gifConvertAPI'] + "/convert?url=" + vurl
-                        suffix += " - GIF"
+                        suffix += " • GIF"
                 return renderVideoTweetEmbed(tweetData,media,appnameSuffix=suffix)
 
     return message(msgs.failedToScan)
