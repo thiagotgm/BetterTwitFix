@@ -194,3 +194,14 @@ def test_embed_rtf():
     resp = client.get(testTextTweet.replace("https://twitter.com","")+".rtf",headers={"User-Agent":"test"})
     assert resp.status_code==200
     assert testTextTweet_compare["text"] in str(resp.data)
+
+def test_embed_action():
+    cache.clearCache()
+    resp = client.get(testTextTweet.replace("https://twitter.com",""),headers={"User-Agent":"test"})
+    assert resp.status_code==200
+    assert "application/activity+json" in str(resp.data)
+    assert "%F0%9F%92%96" in str(resp.data) # 💖
+    resp = client.get(testTextTweet.replace("https://twitter.com",""),headers={"User-Agent":"Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)"})
+    assert resp.status_code==200
+    assert "application/activity+json" in str(resp.data)
+    assert "%F0%9F%92%96" not in str(resp.data) # 💖
