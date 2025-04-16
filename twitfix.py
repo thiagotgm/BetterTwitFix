@@ -303,7 +303,7 @@ def twitfix(sub_path):
         user_agent = "unknown"
 
     isApiRequest=request.url.startswith("https://api.vx") or request.url.startswith("http://api.vx")
-    if not isApiRequest and request.url.startswith("https://l.vx") and "Discord" in user_agent:
+    if not isApiRequest and (request.url.startswith("https://l.vx") or request.url.startswith("https://old.vx")) and "Discord" in user_agent:
         user_agent = user_agent.replace("Discord","LegacyEmbed") # TODO: Clean up; This is a hacky fix to make the new activity embed not trigger
     if sub_path in staticFiles:
         if 'path' not in staticFiles[sub_path] or staticFiles[sub_path]["path"] == None:
