@@ -219,6 +219,10 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
     if 'in_reply_to_screen_name' in tweetL and tweetL['in_reply_to_screen_name'] != None:
         replyingTo = tweetL['in_reply_to_screen_name']
 
+    replyingToID = None
+    if 'in_reply_to_status_id_str' in tweetL andTweetL['in_reply_to_status_id_str'] != None:
+        replyingToID = tweetL['in_reply_to_status_id_str']
+
     apiObject = {
         "text": twText,
         "likes": tweetL["favorite_count"],
@@ -244,6 +248,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         "article": tweetArticle,
         "lang": lang,
         "replyingTo": replyingTo,
+        "replyingToID": replyingToID,
     }
     try:
         apiObject["date_epoch"] = int(datetime.strptime(tweetL["created_at"], "%a %b %d %H:%M:%S %z %Y").timestamp())
