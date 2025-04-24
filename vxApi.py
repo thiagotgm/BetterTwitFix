@@ -220,7 +220,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         replyingTo = tweetL['in_reply_to_screen_name']
 
     replyingToID = None
-    if 'in_reply_to_status_id_str' in tweetL andTweetL['in_reply_to_status_id_str'] != None:
+    if 'in_reply_to_status_id_str' in tweetL and tweetL['in_reply_to_status_id_str'] != None:
         replyingToID = tweetL['in_reply_to_status_id_str']
 
     apiObject = {
