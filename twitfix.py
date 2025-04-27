@@ -290,9 +290,17 @@ def getTweetData(twitter_url,include_txt="false",include_rtf="false"):
         addVnfToLinkCache(twitter_url,tweetData)
     return tweetData
 
-def getUserData(twitter_url):
+def getUserData(twitter_url,includeFeed=False):
     rawUserData = twExtract.extractUser(twitter_url,workaroundTokens=config['config']['workaroundTokens'].split(','))
     userData = getApiUserResponse(rawUserData)
+
+    if includeFeed:
+        feed = twExtract.extractUserFeedFromId(userData['id'],workaroundTokens=config['config']['workaroundTokens'].split(','))
+        apiFeed = []
+        for tweet in feed:
+            apiFeed.append(getApiResponse(tweet))
+        userData['latestTweets'] = apiFeed
+
     return userData
 
 @app.route('/<path:sub_path>') # Default endpoint used by everything
@@ -322,7 +330,7 @@ def twitfix(sub_path):
             username=sub_path.split("/")[0]
             extra = sub_path.split("/")[1]
         if extra in [None,"with_replies","media","likes","highlights","superfollows","media",''] and username != "" and username != None:
-            userData = getUserData(f"https://twitter.com/{username}")
+            userData = getUserData(f"https://twitter.com/{username}","withFeed" in request.args)
             if isApiRequest:
                 if userData is None:
                     abort(404)

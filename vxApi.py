@@ -98,7 +98,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         if "hashtags" in tweetL["entities"]:
             for i in tweetL["entities"]["hashtags"]:
                 hashtags.append(i["text"])
-    elif "card" in tweet and tweet['card']['name'] == "player":
+    elif "card" in tweet and 'name' in tweet['card'] and tweet['card']['name'] == "player":
         width = None
         height = None
         vidUrl = None

@@ -101,7 +101,6 @@ def test_twextract_pollTweetExtract(): # basic check if poll data exists
 def test_twextract_NSFW_TweetExtract():
     tweet = twExtract.extractStatus(testNSFWTweet,workaroundTokens=tokens) # For now just test that there's no error
 
-'''
 def test_twextract_feed():
-    tweet = twExtract.extractUserFeedFromId(testUserID,workaroundTokens=tokens)
-'''
+    tweets = twExtract.extractUserFeedFromId(testUserID,workaroundTokens=tokens) # For now just test that there's no error
+    assert len(tweets)>0

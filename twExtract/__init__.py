@@ -14,6 +14,8 @@ v2bearer="Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1
 androidBearer="Bearer AAAAAAAAAAAAAAAAAAAAAFXzAwAAAAAAMHCxpeSDG1gLNLghVe8d74hl6k4%3DRUMF4xAQLsbeBhTSRrCiQpJtxoGWeyHrDb5te2jpGskWDFW82F"
 tweetdeckBearer="Bearer AAAAAAAAAAAAAAAAAAAAAFQODgEAAAAAVHTp76lzh3rFzcHbmHVvQxYYpTw%3DckAlMINMjmCwxUcaXbAN4XqJVdgMJaHqNOFgPMK0zN1qLqLQCF"
 
+requestUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+
 bearerTokens=[tweetdeckBearer,bearer,v2bearer,androidBearer]
 
 guestToken=None
@@ -36,8 +38,8 @@ tweetDetailGraphqlFeatures='{"rweb_tipjar_consumption_enabled":true,"responsive_
 tweetDetailGraphql_api="e7RKseIxLu7HgkWNKZ6qnw"
 
 # this is for UserTweets endpoint
-tweetFeedGraphqlFeatures='{"profile_label_improvements_pcf_label_in_post_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"responsive_web_jetfuel_frame":false,"responsive_web_grok_share_attachment_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"responsive_web_grok_analysis_button_from_backend":true,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_enhance_cards_enabled":false}'
-tweetFeedGraphql_api="Y9WM4Id6UcGFE8Z-hbnixw"
+tweetFeedGraphqlFeatures='{"rweb_video_screen_enabled":false,"profile_label_improvements_pcf_label_in_post_enabled":true,"rweb_tipjar_consumption_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"responsive_web_jetfuel_frame":false,"responsive_web_grok_share_attachment_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"responsive_web_grok_show_grok_translated_post":false,"responsive_web_grok_analysis_button_from_backend":true,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_enhance_cards_enabled":false}'
+tweetFeedGraphql_api="OAx9yEcW3JA9bPo63pcYlA"
 
 twitterUrl = "x.com" # doubt this will change but just in case
 class TwExtractError(Exception):
@@ -99,7 +101,7 @@ def twitterApiGet(url,btoken=None,authToken=None,guestToken=None):
 
 def getAuthHeaders(btoken,authToken=None,guestToken=None):
     csrfToken=str(uuid.uuid4()).replace('-', '')
-    headers = {"x-twitter-active-user":"yes","x-twitter-client-language":"en","x-csrf-token":csrfToken,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0"}
+    headers = {"x-twitter-active-user":"yes","x-twitter-client-language":"en","x-csrf-token":csrfToken,"User-Agent":requestUserAgent}
     headers['Authorization'] = btoken
 
     if authToken is not None:
@@ -114,7 +116,7 @@ def getGuestToken():
     global guestToken
     global guestTokenUses
     if guestToken is None:
-        r = requests.get(f"https://{twitterUrl}",headers={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0","Cookie":"night_mode=2"},allow_redirects=False)
+        r = requests.get(f"https://{twitterUrl}",headers={"User-Agent":requestUserAgent,"Cookie":"night_mode=2"},allow_redirects=False)
         m = re.search(gt_pattern, r.text)
         if m is None:
             r = requests.post(f"https://api.{twitterUrl}/1.1/guest/activate.json", headers={"Authorization":bearer})
@@ -510,24 +512,39 @@ def extractUserFeedFromId(userId,workaroundTokens):
             # TODO: https://api.twitter.com/graphql/x31u1gdnjcqtiVZFc1zWnQ/UserWithProfileTweetsQueryV2?variables={"cursor":"?","includeTweetImpression":true,"includeHasBirdwatchNotes":false,"includeEditPerspective":false,"includeEditControl":true,"count":40,"rest_id":"12","includeTweetVisibilityNudge":true,"autoplay_enabled":true}&features={"longform_notetweets_inline_media_enabled":true,"super_follow_badge_privacy_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"super_follow_user_api_enabled":true,"unified_cards_ad_metadata_container_dynamic_card_content_query_enabled":true,"super_follow_tweet_api_enabled":true,"articles_api_enabled":true,"android_graphql_skip_api_media_color_palette":true,"creator_subscriptions_tweet_preview_api_enabled":true,"freedom_of_speech_not_reach_fetch_enabled":true,"tweetypie_unmention_optimization_enabled":true,"longform_notetweets_consumption_enabled":true,"subscriptions_verification_info_enabled":true,"blue_business_profile_image_shape_enabled":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"immersive_video_status_linkable_timestamps":false,"super_follow_exclusive_tweet_notifications_enabled":true}
             continue
         try:
-            vars = json.loads('{"userId":"x","count":20,"includePromotedContent":true,"withQuickPromoteEligibilityTweetFields":true,"withVoice":true,"withV2Timeline":true}')
+            vars = json.loads('{"userId":"0","count":20,"includePromotedContent":true,"withCommunity":true,"withVoice":true}')
             vars['userId'] = str(userId)
             vars['includePromotedContent'] = False # idk if this works
             reqHeaders = getAuthHeaders(bearer,authToken=authToken)
-            reqHeaders["x-client-transaction-id"] = twUtils.generate_transaction_id("GET","/i/api/graphql/x31u1gdnjcqtiVZFc1zWnQ/UserWithProfileTweetsQueryV2")
-            feed = requests.get(f"https://{twitterUrl}/i/api/graphql/{tweetFeedGraphql_api}/UserTweets?variables={urllib.parse.quote(json.dumps(vars))}&features={urllib.parse.quote(tweetFeedGraphqlFeatures)}", reqHeaders)
+            endpoint=f"/i/api/graphql/{tweetFeedGraphql_api}/UserTweetsAndReplies"
+            reqHeaders["x-client-transaction-id"] = twUtils.generate_transaction_id("GET",endpoint)
+            feed = requests.get(f"https://{twitterUrl}{endpoint}", {'variables':json.dumps(vars),'features':tweetFeedGraphqlFeatures,'fieldToggles':'{"withArticlePlainText":false}'},headers=reqHeaders)
+            if feed.status_code == 403:
+                raise TwExtractError(403, "Extract error")
             output = feed.json()
             if "errors" in output:
                 # pick the first error and create a twExtractError
                 error = output["errors"][0]
                 raise TwExtractError(error["code"], error["message"])
-            return output
+            timelineInstructions = output['data']['user']['result']['timeline']['timeline']['instructions']
+            #tweetIds=None
+            tweets=None
+            for instruction in timelineInstructions:
+                if 'type' in instruction and instruction['type'] == 'TimelineAddEntries':
+                    entries = instruction['entries']
+                    #tweetIds = []
+                    tweets = []
+                    for entry in entries:
+                        if entry['entryId'].startswith("tweet-"):
+                            # get the tweet ID from the entryId
+                            #tweetId = entry['entryId'].split("-")[1]
+                            #tweetIds.append(tweetId)
+                            tweet = entry['content']['itemContent']['tweet_results']['result']
+                            tweets.append(tweet)
+            return tweets
         except Exception as e:
             continue
     raise TwExtractError(400, "Extract error")
-
-def extractUserFeed(username,workaroundTokens):
-    pass
 
 def lambda_handler(event, context):
     if ("queryStringParameters" not in event):

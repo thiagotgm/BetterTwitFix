@@ -2,6 +2,9 @@ import math
 import hashlib
 import base64
 import uuid
+from x_client_transaction import ClientTransaction
+from x_client_transaction.utils import handle_x_migration
+import requests
 digits = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 def baseConversion(x, base):
@@ -31,5 +34,21 @@ def calcSyndicationToken(idStr):
         c = '0'
     return c
 
-def generate_transaction_id(method: str, path: str) -> str:
-    return "?" # not implemented
+def get_twitter_homepage(headers=None):
+    if headers is None:
+        headers = {"Authority": "x.com",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Referer": "https://x.com",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+            "X-Twitter-Active-User": "yes",
+            "X-Twitter-Client-Language": "en"}
+    if 'Authorization' in headers:
+        del headers['Authorization']
+    response = requests.get("https://x.com/home", headers=headers)
+    return response
+
+def generate_transaction_id(method: str, path: str,headers=None) -> str:
+    ct = ClientTransaction(get_twitter_homepage(headers=headers))
+    transaction_id = ct.generate_transaction_id(method=method, path=path)
+    return transaction_id
