@@ -299,7 +299,7 @@ def getUserData(twitter_url,includeFeed=False):
         apiFeed = []
         for tweet in feed:
             apiFeed.append(getApiResponse(tweet))
-        userData['latestTweets'] = apiFeed
+        userData['latest_tweets'] = apiFeed
 
     return userData
 

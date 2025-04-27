@@ -48,4 +48,4 @@ def test_api_user_feed():
     jData = resp.get_json()
     assert resp.status_code==200
     assert jData["screen_name"]=="jack"
-    assert len(jData["latestTweets"])>0
+    assert len(jData["latest_tweets"])>0
