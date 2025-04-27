@@ -3,6 +3,17 @@ import twitfix,twExtract
 from flask.testing import FlaskClient
 client = FlaskClient(twitfix.app)
 
+def test_api_get_tweet():
+    resp = client.get(testTextTweet.replace("https://twitter.com","https://api.vxtwitter.com")+"?include_txt=true",headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert resp.status_code==200
+    assert jData['text'] == 'just setting up my twttr'
+
+def test_api_get_invalid_tweet():
+    resp = client.get("https://vxtwitter.com/test/status/None",headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert resp.status_code!=200
+
 def test_api_include_txt():
     resp = client.get(testTextTweet.replace("https://twitter.com","https://api.vxtwitter.com")+"?include_txt=true",headers={"User-Agent":"test"})
     jData = resp.get_json()
