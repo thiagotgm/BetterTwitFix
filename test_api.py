@@ -44,7 +44,7 @@ def test_api_user():
     assert jData["screen_name"]=="jack"
 
 def test_api_user_feed():
-    resp = client.get(testUser.replace("https://twitter.com","https://api.vxtwitter.com")+"?withFeed=true",headers={"User-Agent":"test"})
+    resp = client.get(testUser.replace("https://twitter.com","https://api.vxtwitter.com")+"?with_tweets=true",headers={"User-Agent":"test"})
     jData = resp.get_json()
     assert resp.status_code==200
     assert jData["screen_name"]=="jack"
