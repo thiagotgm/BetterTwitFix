@@ -144,6 +144,10 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
     if 'quoted_status_id_str' in tweetL:
         qrtURL = "https://twitter.com/i/status/" + tweetL['quoted_status_id_str']
 
+    retweetURL = None
+    if 'retweeted_status_result' in tweetL:
+        retweetURL = "https://twitter.com/i/status/" + tweetL['retweeted_status_result']['result']['rest_id']
+
     if 'possibly_sensitive' not in tweetL:
         tweetL['possibly_sensitive'] = False
 
@@ -253,6 +257,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         "replyingTo": replyingTo,
         "replyingToID": replyingToID,
         "fetched_on": int(datetime.now().timestamp()),
+        "retweetURL":retweetURL,
     }
     try:
         apiObject["date_epoch"] = int(datetime.strptime(tweetL["created_at"], "%a %b %d %H:%M:%S %z %Y").timestamp())

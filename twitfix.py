@@ -359,6 +359,12 @@ def twitfix(sub_path):
     if 'qrtURL' in tweetData and tweetData['qrtURL'] is not None:
         qrt = getTweetData(tweetData['qrtURL'])
     tweetData['qrt'] = qrt
+
+    retweet = None
+    if 'retweetURL' in tweetData and tweetData['retweetURL'] is not None:
+        retweet = getTweetData(tweetData['retweetURL'])
+    tweetData['retweet'] = retweet
+
     tweetData = deepcopy(tweetData)
     log.success("Tweet Data Get success")
     if '?' in request.url:
@@ -473,6 +479,12 @@ def api_v1_status(tweet_id):
     if 'qrtURL' in tweetData and tweetData['qrtURL'] is not None:
         qrt = getTweetData(tweetData['qrtURL'])
     tweetData['qrt'] = qrt
+
+    retweet = None
+    if 'retweetURL' in tweetData and tweetData['retweetURL'] is not None:
+        retweet = getTweetData(tweetData['retweetURL'])
+    tweetData['retweet'] = retweet
+
     if tweetData is None:
         abort(500) # this should cause Discord to fall back to the default embed
     return activitymg.tweetDataToActivity(tweetData,embedIndex)

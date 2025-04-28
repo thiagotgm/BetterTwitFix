@@ -60,3 +60,10 @@ def test_api_user_feed():
     assert resp.status_code==200
     assert jData["screen_name"]=="jack"
     assert len(jData["latest_tweets"])>0
+
+def test_api_retweet():
+    resp = client.get(testRetweetTweet.replace("https://twitter.com","https://api.vxtwitter.com"),headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert jData['retweetURL'] == 'https://twitter.com/i/status/1828569456231993456'
+    assert jData['retweet'] != None
+    assert jData['retweet']['text'].startswith("If you want to try")
