@@ -16,7 +16,7 @@ def getApiUserResponse(user):
         "tweet_count": user["statuses_count"],
         "created_at": user["created_at"],
         "protected": user["protected"],
-        "fetched_on": datetime.now().timestamp(),
+        "fetched_on": int(datetime.now().timestamp()),
     }
 
 def getApiResponse(tweet,include_txt=False,include_rtf=False):
@@ -250,7 +250,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
         "lang": lang,
         "replyingTo": replyingTo,
         "replyingToID": replyingToID,
-        "fetched_on": datetime.now().timestamp(),
+        "fetched_on": int(datetime.now().timestamp()),
     }
     try:
         apiObject["date_epoch"] = int(datetime.strptime(tweetL["created_at"], "%a %b %d %H:%M:%S %z %Y").timestamp())
