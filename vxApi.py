@@ -156,6 +156,8 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
 
     if 'entities' in tweetL and 'urls' in tweetL['entities']:
         for eurl in tweetL['entities']['urls']:
+            if 'expanded_url' not in eurl:
+                continue
             if "/status/" in eurl["expanded_url"] and eurl["expanded_url"].startswith("https://twitter.com/"):
                 twText = twText.replace(eurl["url"], "")
             else:
