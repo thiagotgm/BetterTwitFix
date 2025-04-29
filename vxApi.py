@@ -217,7 +217,7 @@ def getApiResponse(tweet,include_txt=False,include_rtf=False):
                 totalVotes += option["votes"]
                 pollData["options"].append(option)
         for i in pollData["options"]:
-            i["percent"] = round((i["votes"]/totalVotes)*100,2)
+            i["percent"] = round((i["votes"]/totalVotes)*100,2) if totalVotes > 0 else 0
         
     if 'lang' in tweetL:
         lang = tweetL['lang']

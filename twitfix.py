@@ -295,11 +295,14 @@ def getUserData(twitter_url,includeFeed=False):
     userData = getApiUserResponse(rawUserData)
 
     if includeFeed:
-        feed = twExtract.extractUserFeedFromId(userData['id'],workaroundTokens=config['config']['workaroundTokens'].split(','))
-        apiFeed = []
-        for tweet in feed:
-            apiFeed.append(getApiResponse(tweet))
-        userData['latest_tweets'] = apiFeed
+        if userData['protected']:
+            userData['latest_tweets']=[]
+        else:
+            feed = twExtract.extractUserFeedFromId(userData['id'],workaroundTokens=config['config']['workaroundTokens'].split(','))
+            apiFeed = []
+            for tweet in feed:
+                apiFeed.append(getApiResponse(tweet))
+            userData['latest_tweets'] = apiFeed
 
     return userData
 
@@ -330,7 +333,15 @@ def twitfix(sub_path):
             username=sub_path.split("/")[0]
             extra = sub_path.split("/")[1]
         if extra in [None,"with_replies","media","likes","highlights","superfollows","media",''] and username != "" and username != None:
-            userData = getUserData(f"https://twitter.com/{username}","with_tweets" in request.args)
+            try:
+                userData = getUserData(f"https://twitter.com/{username}","with_tweets" in request.args)
+            except twExtract.TwExtractError as e:
+                if isApiRequest:
+                    status=500
+                    if 'not found' in e.msg:
+                        status=404
+                    return Response(json.dumps({"error": e.msg}), status=status,mimetype='application/json')
+                return message("Error getting user data: "+str(e.msg))
             if isApiRequest:
                 if userData is None:
                     abort(404)

@@ -54,6 +54,23 @@ def test_api_user():
     assert resp.status_code==200
     assert jData["screen_name"]=="jack"
 
+def test_api_user_suspended():
+    resp = client.get(testUserSuspended.replace("https://twitter.com","https://api.vxtwitter.com"),headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert resp.status_code==500
+    assert 'suspended' in jData["error"]
+
+def test_api_user_private():
+    resp = client.get(testUserPrivate.replace("https://twitter.com","https://api.vxtwitter.com")+"?with_tweets=true",headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert jData['protected'] == True
+    assert len(jData["latest_tweets"])==0
+
+def test_api_user_invalid():
+    resp = client.get(testUserInvalid.replace("https://twitter.com","https://api.vxtwitter.com")+"?with_tweets=true",headers={"User-Agent":"test"})
+    jData = resp.get_json()
+    assert resp.status_code==404
+
 def test_api_user_feed():
     resp = client.get(testUser.replace("https://twitter.com","https://api.vxtwitter.com")+"?with_tweets=true",headers={"User-Agent":"test"})
     jData = resp.get_json()

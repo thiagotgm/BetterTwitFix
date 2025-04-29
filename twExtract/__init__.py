@@ -315,7 +315,11 @@ def extractStatusV2Android(url,workaroundTokens):
                 print(f"Error in output: {json.dumps(output['errors'])}")
                 # try another token
                 continue
-            entries=output['data']['timeline_response']['instructions'][0]['entries']
+            entries = None
+            for instruction in output['data']['timeline_response']['instructions']:
+                if instruction["__typename"] == "TimelineAddEntries":
+                    entries = instruction['entries']
+                    break
             tweetEntry=None
             for entry in entries:
                 if 'content' not in entry:
@@ -372,7 +376,11 @@ def extractStatusV2TweetDetail(url,workaroundTokens):
                 print(f"Error in output: {json.dumps(output['errors'])}")
                 # try another token
                 continue
-            entries=output['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries']
+            entries = None
+            for instruction in output['data']['threaded_conversation_with_injections_v2']['instructions']:
+                if instruction["type"] == "TimelineAddEntries":
+                    entries = instruction['entries']
+                    break
             tweetEntry=None
             for entry in entries:
                 if 'content' not in entry:
@@ -501,6 +509,8 @@ def extractUser(url,workaroundTokens):
                 raise TwExtractError(error["code"], error["message"])
             return output
         except Exception as e:
+            if hasattr(e,"msg") and (e.msg == 'User has been suspended.' or e.msg == 'User not found.'):
+                raise e
             continue
     raise TwExtractError(400, "Extract error")
 
