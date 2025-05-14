@@ -38,6 +38,8 @@ def tweetDataToActivity(tweetData,embedIndex = -1):
             media['type'] = "gifv"
         if 'thumbnail_url' not in media:
             media['thumbnail_url'] = media['url']
+        if media['type'] == "image" and "?" not in media['url']:
+            media['url'] += "?name=orig"
         attachments.append({
             "id": "114163769487684704",
             "type": media['type'],
