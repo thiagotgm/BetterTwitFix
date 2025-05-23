@@ -553,6 +553,7 @@ def extractUserFeedFromId(userId,workaroundTokens):
                             tweets.append(tweet)
             return tweets
         except Exception as e:
+            print(f"Exception in extractUserFeedFromId: {str(e)}")
             continue
     raise TwExtractError(400, "Extract error")
 
